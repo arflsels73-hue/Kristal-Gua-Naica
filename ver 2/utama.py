@@ -1,215 +1,194 @@
 import streamlit as st
-import numpy as np
-import plotly.graph_objects as go
-import random
+import streamlit.components.v1 as components
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN (Aesthetic Mode)
+# 1. KONFIGURASI HALAMAN (Dark Aesthetic)
 # ==========================================
 st.set_page_config(
-    page_title="The Crystal Cave Simulator",
-    page_icon="💎",
+    page_title="Bioluminescence Simulator",
+    page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS untuk Dark Aesthetic & Glow
+# Custom CSS untuk membuat UI Streamlit jadi estetik gelap
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #05050A;
-        color: #E0E0FF;
-    }
-    .css-1d391kg, .css-1lcbmhc {
-        background-color: #0A0A14 !important;
-    }
-    h1, h2, h3 {
-        color: #DDA0DD !important;
-        font-family: 'Georgia', serif;
-    }
-    .metric-box {
-        background: linear-gradient(145deg, #121220, #0a0a14);
-        border: 1px solid #3b205e;
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        box-shadow: 0 0 15px rgba(138, 43, 226, 0.2);
-    }
-    .metric-value { font-size: 24px; font-weight: bold; color: #E0B0FF; }
-    .metric-label { font-size: 12px; color: #8A8A9E; text-transform: uppercase; letter-spacing: 1px; }
+    .stApp { background-color: #0d0e15; color: #e2e8f0; }
+    h1, h2, h3 { color: #00f2fe; font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 10px rgba(0, 242, 254, 0.5); }
+    .stSlider > div > div > div > div { background-color: #00f2fe; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. ALGORITMA INFORMATIKA: FRACTAL 3D
+# 2. SIDEBAR KONTROL (Parameter Sains)
 # ==========================================
-def generate_crystal_fractal(iterations, branches, length, angle_variance, depth=0, current_point=np.array([0.0, 0.0, 0.0]), current_vector=np.array([0.0, 0.0, 1.0]), data=None):
-    """
-    Fungsi rekursif untuk menghasilkan koordinat titik-titik kristal dalam ruang 3D.
-    Menggunakan logika matriks rotasi vektor dan kalkulus geometri.
-    """
-    if data is None:
-        data = {'x': [], 'y': [], 'z': [], 'color': [], 'size': []}
+st.sidebar.markdown("## 🔬 Parameter Inkubator")
+st.sidebar.caption("Atur variabel untuk melihat perubahan dinamika sel/partikel secara real-time.")
+
+jumlah_sel = st.sidebar.slider("Kepadatan Populasi Sel", 50, 300, 150, 10)
+jarak_ikatan = st.sidebar.slider("Jarak Ikatan Saraf (Radius)", 50, 200, 120, 10)
+kecepatan = st.sidebar.slider("Aktivitas Kinetik", 1, 10, 3, 1)
+
+warna_tema = st.sidebar.selectbox("Gugus Warna Estetik", [
+    "Cyan-Blue (Bioluminescence)", 
+    "Purple-Pink (Neural Synapse)", 
+    "Green-Yellow (Toxic Isotope)"
+])
+
+# Logika penerjemahan warna ke kode HEX untuk JavaScript
+if warna_tema == "Cyan-Blue (Bioluminescence)":
+    particle_color = "#00f2fe"
+    line_color = "rgba(0, 242, 254,"
+elif warna_tema == "Purple-Pink (Neural Synapse)":
+    particle_color = "#d53369"
+    line_color = "rgba(213, 51, 105,"
+else:
+    particle_color = "#a8ff78"
+    line_color = "rgba(168, 255, 120,"
+
+# ==========================================
+# 3. TAMPILAN DASHBOARD
+# ==========================================
+st.title("🧬 Neural Web & Population Dynamics")
+st.markdown("Sebuah simulasi *Artificial Life* menggunakan jaringan interaksi partikel. Setiap titik merepresentasikan entitas sel yang bergerak secara kinetik dan akan membentuk ikatan kimia/saraf secara otomatis jika berada dalam jarak radius tertentu.")
+
+st.write("---")
+
+# ==========================================
+# 4. ENGINE ANIMASI (HTML5 CANVAS + JS)
+# ==========================================
+# Kodenya panjang dan kompleks di sisi algoritma komputasi visualnya (Bikin temenmu takjub!)
+html_code = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ margin: 0; padding: 0; background-color: #05050A; overflow: hidden; display: flex; justify-content: center; align-items: center; border-radius: 15px; box-shadow: 0 0 30px rgba(0,0,0,0.8) inset; }}
+        canvas {{ display: block; border-radius: 15px; }}
+    </style>
+</head>
+<body>
+
+<canvas id="neuralCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('neuralCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Setting ukuran canvas
+    canvas.width = window.innerWidth - 40;
+    canvas.height = 450;
+
+    // Parameter dari Streamlit
+    const numParticles = {jumlah_sel};
+    const connectionRadius = {jarak_ikatan};
+    const speedMultiplier = {kecepatan} * 0.5;
+    const pColor = "{particle_color}";
+    const lColorBase = "{line_color}";
+
+    // Array penyimpan partikel
+    let particlesArray = [];
+
+    // Class cetak biru Partikel (Sel)
+    class Particle {{
+        constructor() {{
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2.5 + 1;
+            this.weight = Math.random() * 1.5 + 0.5;
+            this.directionX = (Math.random() * 2 - 1) * speedMultiplier;
+            this.directionY = (Math.random() * 2 - 1) * speedMultiplier;
+        }}
         
-    if depth >= iterations:
-        return data
-
-    for _ in range(branches):
-        # Matriks Rotasi Acak (Trigonometri 3D)
-        theta = random.uniform(-angle_variance, angle_variance)
-        phi = random.uniform(0, 2 * np.pi)
+        // Algoritma pergerakan partikel (Hukum Pemantulan Kinetik)
+        update() {{
+            if (this.x > canvas.width || this.x < 0) {{
+                this.directionX = -this.directionX;
+            }}
+            if (this.y > canvas.height || this.y < 0) {{
+                this.directionY = -this.directionY;
+            }}
+            
+            this.x += this.directionX;
+            this.y += this.directionY;
+            this.draw();
+        }}
         
-        # Rotasi Vektor
-        x_rot = np.sin(theta) * np.cos(phi)
-        y_rot = np.sin(theta) * np.sin(phi)
-        z_rot = np.cos(theta)
+        // Render bentuk sel
+        draw() {{
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = pColor;
+            ctx.fill();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = pColor;
+        }}
+    }}
+
+    // Inisialisasi awal ekosistem
+    function init() {{
+        particlesArray = [];
+        for (let i = 0; i < numParticles; i++) {{
+            particlesArray.push(new Particle());
+        }}
+    }}
+
+    // Algoritma O(n^2) untuk mendeteksi jarak ikatan antar semua sel
+    function connect() {{
+        let opacityValue = 1;
+        for (let a = 0; a < particlesArray.length; a++) {{
+            for (let b = a; b < particlesArray.length; b++) {{
+                let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x)) + 
+                               ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                
+                // Jika jarak memenuhi syarat, buat garis ikatan (Sinapsis)
+                if (distance < (connectionRadius * connectionRadius)) {{
+                    opacityValue = 1 - (distance / (connectionRadius * connectionRadius));
+                    ctx.strokeStyle = lColorBase + opacityValue + ')';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                    ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                    ctx.stroke();
+                }}
+            }}
+        }}
+    }}
+
+    // Loop Animasi (60 Frame per Second)
+    function animate() {{
+        requestAnimationFrame(animate);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        new_vector = current_vector + np.array([x_rot, y_rot, z_rot])
-        new_vector = new_vector / np.linalg.norm(new_vector) # Normalisasi Vektor
-        
-        # Hitung Titik Ujung Kristal (End Point)
-        branch_length = length * random.uniform(0.7, 1.3) * (0.85 ** depth)
-        end_point = current_point + (new_vector * branch_length)
-        
-        # Simpan Jalur Garis (dengan nilai None agar Plotly memutus garis)
-        data['x'].extend([current_point[0], end_point[0], None])
-        data['y'].extend([current_point[1], end_point[1], None])
-        data['z'].extend([current_point[2], end_point[2], None])
-        
-        # Warna dan ketebalan memudar seiring pertumbuhan
-        data['color'].extend([depth, depth, None])
-        
-        # Panggil fungsi ini lagi secara rekursif
-        generate_crystal_fractal(
-            iterations, 
-            branches=random.randint(1, 3) if depth > 0 else branches, 
-            length=length, 
-            angle_variance=angle_variance, 
-            depth=depth+1, 
-            current_point=end_point, 
-            current_vector=new_vector, 
-            data=data
-        )
-        
-    return data
+        for (let i = 0; i < particlesArray.length; i++) {{
+            particlesArray[i].update();
+        }}
+        connect();
+    }}
 
-# ==========================================
-# 3. SIDEBAR (Parameter Fisika & Kimia)
-# ==========================================
-st.sidebar.markdown("## ⚙️ Parameter Geologi")
-st.sidebar.caption("Atur variabel termodinamika untuk melihat hasil simulasi pertumbuhan.")
+    // Jalankan program
+    init();
+    animate();
 
-suhu_magma = st.sidebar.slider("Suhu Inti Magma (°C)", 100, 1000, 500, 10)
-tekanan = st.sidebar.slider("Tekanan Atmosfer Bawah Tanah (atm)", 10, 200, 100, 5)
-waktu_geologi = st.sidebar.slider("Siklus Pertumbuhan (Ribu Tahun)", 1, 10, 5, 1)
+    // Responsif jika ukuran browser diubah
+    window.addEventListener('resize', function() {{
+        canvas.width = window.innerWidth - 40;
+        init();
+    }});
+</script>
 
-mineral_type = st.sidebar.selectbox("Jenis Mineral", ["Amethyst (Ungu)", "Quartz (Bening)", "Malachite (Hijau)", "Citrine (Kuning)"])
+</body>
+</html>
+"""
 
-# Logika Warna Estetik Berdasarkan Mineral
-color_scales = {
-    "Amethyst (Ungu)": "Purples",
-    "Quartz (Bening)": "Greys",
-    "Malachite (Hijau)": "Tealgrn",
-    "Citrine (Kuning)": "Wistia"
-}
-selected_colorscale = color_scales[mineral_type]
+# Menyematkan Canvas Animasi ke dalam Streamlit
+components.html(html_code, height=470)
 
-st.sidebar.markdown("---")
-st.sidebar.info("💡 **Konsep Sains:** Kristal tumbuh saat fluida hidrotermal mendingin secara perlahan. Semakin lama waktu geologi, semakin kompleks cabang sel kristalnya.")
-
-# ==========================================
-# 4. KONEKSI LOGIKA KE ALGORITMA
-# ==========================================
-# Suhu mempengaruhi seberapa acak/berantakan arah tumbuhnya (Entropy)
-variance = np.interp(suhu_magma, [100, 1000], [0.1, 0.8])
-# Tekanan mempengaruhi kepadatan cabang kristal
-branching_factor = int(np.interp(tekanan, [10, 200], [2, 5]))
-# Waktu mempengaruhi kedalaman iterasi (seberapa panjang kristal tumbuh)
-iterasi = waktu_geologi
-
-# Eksekusi Algoritma Generate
-with st.spinner("Menginkubasi mineral... Merender matriks 3D..."):
-    crystal_data = generate_crystal_fractal(
-        iterations=iterasi, 
-        branches=branching_factor, 
-        length=10.0, 
-        angle_variance=variance
-    )
-
-# Hitung Total Fraktal untuk Dasbor
-total_bonds = len([x for x in crystal_data['x'] if x is not None]) // 2
-
-# ==========================================
-# 5. RENDER 3D ESTETIK (PLOTLY)
-# ==========================================
-fig = go.Figure()
-
-# Menambahkan Jalur Garis (Struktur Inti Kristal)
-fig.add_trace(go.Scatter3d(
-    x=crystal_data['x'], y=crystal_data['y'], z=crystal_data['z'],
-    mode='lines',
-    line=dict(
-        color=crystal_data['color'],
-        colorscale=selected_colorscale,
-        width=4,
-        reversescale=True
-    ),
-    hoverinfo='none',
-    opacity=0.8
-))
-
-# Menambahkan Partikel Ujung Kristal (Efek Glow/Pendar)
-# Hanya mengambil titik ujung dari cabang (koordinat yang sebelum None)
-end_x = [crystal_data['x'][i-1] for i in range(1, len(crystal_data['x'])) if crystal_data['x'][i] is None]
-end_y = [crystal_data['y'][i-1] for i in range(1, len(crystal_data['y'])) if crystal_data['y'][i] is None]
-end_z = [crystal_data['z'][i-1] for i in range(1, len(crystal_data['z'])) if crystal_data['z'][i] is None]
-
-fig.add_trace(go.Scatter3d(
-    x=end_x, y=end_y, z=end_z,
-    mode='markers',
-    marker=dict(
-        size=5,
-        color='white',
-        symbol='diamond',
-        opacity=0.9,
-        line=dict(width=1, color='rgba(255,255,255,0.5)')
-    ),
-    hoverinfo='none'
-))
-
-# Membersihkan Axis agar terlihat seperti Hologram Melayang
-fig.update_layout(
-    paper_bgcolor='#05050A',
-    margin=dict(l=0, r=0, b=0, t=0),
-    scene=dict(
-        xaxis=dict(visible=False, showgrid=False, zeroline=False),
-        yaxis=dict(visible=False, showgrid=False, zeroline=False),
-        zaxis=dict(visible=False, showgrid=False, zeroline=False),
-        camera=dict(
-            up=dict(x=0, y=0, z=1),
-            center=dict(x=0, y=0, z=0),
-            eye=dict(x=1.2, y=1.2, z=1.2) # Jarak pandang kamera
-        )
-    ),
-    showlegend=False
-)
-
-# ==========================================
-# 6. TAMPILAN DASHBOARD UTAMA
-# ==========================================
-st.title("💎 The Cave of Crystals: 3D Simulator")
-st.markdown("Visualisasi komputasional pertumbuhan mineral fraktal dalam ruang $3D$ berdasarkan hukum termodinamika.")
-
-# Deretan Dasbor Estetik
-col1, col2, col3, col4 = st.columns(4)
-col1.markdown(f'<div class="metric-box"><div class="metric-value">{total_bonds:,}</div><div class="metric-label">Ikatan Sel Kristal</div></div>', unsafe_allow_html=True)
-col2.markdown(f'<div class="metric-box"><div class="metric-value">{suhu_magma}°C</div><div class="metric-label">Temperatur Magma</div></div>', unsafe_allow_html=True)
-col3.markdown(f'<div class="metric-box"><div class="metric-value">{tekanan} atm</div><div class="metric-label">Tekanan Fluida</div></div>', unsafe_allow_html=True)
-col4.markdown(f'<div class="metric-box"><div class="metric-value">{variance:.2f} S</div><div class="metric-label">Entropi (Acak)</div></div>', unsafe_allow_html=True)
-
-st.write("") # Spacer
-
-# Render Grafik 3D
-st.plotly_chart(fig, use_container_width=True, height=600)
-
-st.caption("Gunakan *mouse* atau jari untuk memutar, memperbesar, dan menggeser hologram kristal $3D$ di atas. Dikembangkan dengan Python & Plotly.")
+st.write("---")
+col1, col2 = st.columns(2)
+with col1:
+    st.info("💡 **Konsep Biologi & Informatika:** Animasi di atas menggunakan komputasi matriks jarak *O(n²)*. Setiap kali sel saling mendekat, algoritma akan menciptakan sinapsis (garis ikatan) buatan secara instan.")
+with col2:
+    st.success("👨‍💻 **Teknologi:** Merender ribuan iterasi kinetik per detik dengan *HTML5 Canvas API* yang sangat ringan tanpa membebani server.")
