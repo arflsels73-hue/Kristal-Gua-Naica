@@ -1,194 +1,142 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import pandas as pd
+import plotly.graph_objects as go
+import numpy as np
 
-# ==========================================
-# 1. KONFIGURASI HALAMAN (Dark Aesthetic)
-# ==========================================
+# 1. Konfigurasi Halaman (Harus selalu di paling atas)
 st.set_page_config(
-    page_title="Bioluminescence Simulator",
-    page_icon="🧬",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Neo-Earth: Geological Pulse", 
+    layout="wide", 
+    initial_sidebar_state="collapsed",
+    page_icon="🌍"
 )
 
-# Custom CSS untuk membuat UI Streamlit jadi estetik gelap
+# 2. Injeksi Custom CSS (Vibe Cyberpunk & Menyembunyikan Menu Streamlit)
 st.markdown("""
     <style>
-    .stApp { background-color: #0d0e15; color: #e2e8f0; }
-    h1, h2, h3 { color: #00f2fe; font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 10px rgba(0, 242, 254, 0.5); }
-    .stSlider > div > div > div > div { background-color: #00f2fe; }
+        /* Menyembunyikan header, footer, dan menu bawaan Streamlit */
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Mengubah latar belakang utama menjadi hitam pekat */
+        .stApp {
+            background-color: #050505;
+        }
+        
+        /* Kustomisasi Teks dengan efek Neon */
+        h1 {
+            color: #00FFFF;
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            text-shadow: 0 0 5px #00FFFF, 0 0 15px #00FFFF;
+            margin-bottom: 0px;
+        }
+        .subtitle {
+            color: #FF00FF;
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            text-shadow: 0 0 5px #FF00FF;
+            margin-top: -10px;
+            margin-bottom: 30px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. SIDEBAR KONTROL (Parameter Sains)
-# ==========================================
-st.sidebar.markdown("## 🔬 Parameter Inkubator")
-st.sidebar.caption("Atur variabel untuk melihat perubahan dinamika sel/partikel secara real-time.")
+st.markdown("<h1>NEO-EARTH: 3D GLOBAL GEOLOGICAL PULSE</h1>", unsafe_allow_html=True)
+st.markdown("<p class='subtitle'>Live Seismic Activity // Otorisasi: Diterima</p>", unsafe_allow_html=True)
 
-jumlah_sel = st.sidebar.slider("Kepadatan Populasi Sel", 50, 300, 150, 10)
-jarak_ikatan = st.sidebar.slider("Jarak Ikatan Saraf (Radius)", 50, 200, 120, 10)
-kecepatan = st.sidebar.slider("Aktivitas Kinetik", 1, 10, 3, 1)
+# 3. Fungsi Menarik Data Geospasial Real-time (USGS Earthquake Data)
+@st.cache_data(ttl=600) # Data di-cache dan diperbarui setiap 10 menit
+def fetch_live_earthquake_data():
+    # Menarik data gempa bumi > M 2.5 dalam 24 jam terakhir
+    url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.csv"
+    try:
+        df = pd.read_csv(url)
+        return df
+    except Exception as e:
+        st.error(f"Gagal memuat data dari satelit: {e}")
+        return pd.DataFrame()
 
-warna_tema = st.sidebar.selectbox("Gugus Warna Estetik", [
-    "Cyan-Blue (Bioluminescence)", 
-    "Purple-Pink (Neural Synapse)", 
-    "Green-Yellow (Toxic Isotope)"
-])
+df_quake = fetch_live_earthquake_data()
 
-# Logika penerjemahan warna ke kode HEX untuk JavaScript
-if warna_tema == "Cyan-Blue (Bioluminescence)":
-    particle_color = "#00f2fe"
-    line_color = "rgba(0, 242, 254,"
-elif warna_tema == "Purple-Pink (Neural Synapse)":
-    particle_color = "#d53369"
-    line_color = "rgba(213, 51, 105,"
+if not df_quake.empty:
+    # 4. Membangun Proyeksi Bola Bumi 3D
+    fig = go.Figure()
+
+    # Lapisan A: Efek Partikel Pendaran (Glow/Halo effect)
+    # Kita menggunakan marker yang lebih besar namun transparan
+    fig.add_trace(go.Scattergeo(
+        lon = df_quake['longitude'],
+        lat = df_quake['latitude'],
+        hoverinfo = 'skip',
+        marker = dict(
+            size = df_quake['mag'] ** 2.5, # Perhitungan matematis eksponensial untuk radius pendaran
+            color = df_quake['mag'],
+            # Gradasi warna neon yang transparan
+            colorscale = [[0, 'rgba(0, 255, 255, 0.2)'], [0.5, 'rgba(255, 215, 0, 0.2)'], [1, 'rgba(255, 0, 255, 0.2)']],
+        ),
+        showlegend = False
+    ))
+
+    # Lapisan B: Titik Gempa Inti (Core Seismic Point)
+    fig.add_trace(go.Scattergeo(
+        lon = df_quake['longitude'],
+        lat = df_quake['latitude'],
+        text = df_quake['place'] + '<br>Magnitude: ' + df_quake['mag'].astype(str) + ' SR<br>Kedalaman: ' + df_quake['depth'].astype(str) + ' km',
+        marker = dict(
+            size = df_quake['mag'] ** 1.8, # Ukuran inti lebih kecil
+            color = df_quake['mag'],
+            colorscale = [[0, '#00FFFF'], [0.5, '#FFD700'], [1, '#FF00FF']], # Cyan -> Gold -> Magenta
+            showscale = True,
+            colorbar_title = "Magnitude",
+            colorbar = dict(tickfont=dict(color='#00FFFF'), titlefont=dict(color='#00FFFF')),
+            line = dict(width=1, color='rgba(255, 255, 255, 0.9)')
+        ),
+        name = 'Titik Episentrum'
+    ))
+
+    # 5. Pengaturan Environment (Lighting & Tekstur Bola Bumi)
+    fig.update_geos(
+        projection_type="orthographic", # Mengubah peta 2D menjadi Bola Bumi 3D
+        showcoastlines=True,
+        coastlinecolor="#00FFFF",       # Garis pantai bercahaya Cyan
+        coastlinewidth=0.5,
+        showland=True,
+        landcolor="#0A0A0A",            # Daratan hitam gelap
+        showocean=True,
+        oceancolor="#020202",           # Lautan hitam pekat
+        showlakes=False,
+        showcountries=True,
+        countrycolor="#1A1A1A",         # Batas negara remang-remang
+        framecolor="#050505",
+        bgcolor="#050505",              # Menghilangkan background kotak bawaan Plotly
+        resolution=50                   # Resolusi render menengah untuk performa
+    )
+
+    # 6. Finalisasi Tata Letak & Kamera
+    fig.update_layout(
+        paper_bgcolor="#050505",
+        plot_bgcolor="#050505",
+        margin=dict(t=10, b=10, l=0, r=0),
+        geo=dict(
+            center=dict(lon=113.92, lat=-0.78), # Posisi kamera awal menghadap wilayah Indonesia
+            projection_scale=1.1 # Default Zoom-in
+        )
+    )
+
+    # Menampilkan ke Streamlit dengan ukuran penuh
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Footer/Data Statistik sederhana di bawah bola bumi
+    st.markdown("<hr style='border-color: #333;'>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"<p style='color: #00FFFF; text-align: center;'>Total Terdeteksi: <b>{len(df_quake)} Gempa</b></p>", unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"<p style='color: #FFD700; text-align: center;'>Magnitudo Maks: <b>{df_quake['mag'].max()} SR</b></p>", unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"<p style='color: #FF00FF; text-align: center;'>Sumber Data: <b>USGS API (Real-time)</b></p>", unsafe_allow_html=True)
+
 else:
-    particle_color = "#a8ff78"
-    line_color = "rgba(168, 255, 120,"
-
-# ==========================================
-# 3. TAMPILAN DASHBOARD
-# ==========================================
-st.title("🧬 Neural Web & Population Dynamics")
-st.markdown("Sebuah simulasi *Artificial Life* menggunakan jaringan interaksi partikel. Setiap titik merepresentasikan entitas sel yang bergerak secara kinetik dan akan membentuk ikatan kimia/saraf secara otomatis jika berada dalam jarak radius tertentu.")
-
-st.write("---")
-
-# ==========================================
-# 4. ENGINE ANIMASI (HTML5 CANVAS + JS)
-# ==========================================
-# Kodenya panjang dan kompleks di sisi algoritma komputasi visualnya (Bikin temenmu takjub!)
-html_code = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ margin: 0; padding: 0; background-color: #05050A; overflow: hidden; display: flex; justify-content: center; align-items: center; border-radius: 15px; box-shadow: 0 0 30px rgba(0,0,0,0.8) inset; }}
-        canvas {{ display: block; border-radius: 15px; }}
-    </style>
-</head>
-<body>
-
-<canvas id="neuralCanvas"></canvas>
-
-<script>
-    const canvas = document.getElementById('neuralCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    // Setting ukuran canvas
-    canvas.width = window.innerWidth - 40;
-    canvas.height = 450;
-
-    // Parameter dari Streamlit
-    const numParticles = {jumlah_sel};
-    const connectionRadius = {jarak_ikatan};
-    const speedMultiplier = {kecepatan} * 0.5;
-    const pColor = "{particle_color}";
-    const lColorBase = "{line_color}";
-
-    // Array penyimpan partikel
-    let particlesArray = [];
-
-    // Class cetak biru Partikel (Sel)
-    class Particle {{
-        constructor() {{
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.size = Math.random() * 2.5 + 1;
-            this.weight = Math.random() * 1.5 + 0.5;
-            this.directionX = (Math.random() * 2 - 1) * speedMultiplier;
-            this.directionY = (Math.random() * 2 - 1) * speedMultiplier;
-        }}
-        
-        // Algoritma pergerakan partikel (Hukum Pemantulan Kinetik)
-        update() {{
-            if (this.x > canvas.width || this.x < 0) {{
-                this.directionX = -this.directionX;
-            }}
-            if (this.y > canvas.height || this.y < 0) {{
-                this.directionY = -this.directionY;
-            }}
-            
-            this.x += this.directionX;
-            this.y += this.directionY;
-            this.draw();
-        }}
-        
-        // Render bentuk sel
-        draw() {{
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fillStyle = pColor;
-            ctx.fill();
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = pColor;
-        }}
-    }}
-
-    // Inisialisasi awal ekosistem
-    function init() {{
-        particlesArray = [];
-        for (let i = 0; i < numParticles; i++) {{
-            particlesArray.push(new Particle());
-        }}
-    }}
-
-    // Algoritma O(n^2) untuk mendeteksi jarak ikatan antar semua sel
-    function connect() {{
-        let opacityValue = 1;
-        for (let a = 0; a < particlesArray.length; a++) {{
-            for (let b = a; b < particlesArray.length; b++) {{
-                let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x)) + 
-                               ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
-                
-                // Jika jarak memenuhi syarat, buat garis ikatan (Sinapsis)
-                if (distance < (connectionRadius * connectionRadius)) {{
-                    opacityValue = 1 - (distance / (connectionRadius * connectionRadius));
-                    ctx.strokeStyle = lColorBase + opacityValue + ')';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
-                    ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
-                    ctx.stroke();
-                }}
-            }}
-        }}
-    }}
-
-    // Loop Animasi (60 Frame per Second)
-    function animate() {{
-        requestAnimationFrame(animate);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        for (let i = 0; i < particlesArray.length; i++) {{
-            particlesArray[i].update();
-        }}
-        connect();
-    }}
-
-    // Jalankan program
-    init();
-    animate();
-
-    // Responsif jika ukuran browser diubah
-    window.addEventListener('resize', function() {{
-        canvas.width = window.innerWidth - 40;
-        init();
-    }});
-</script>
-
-</body>
-</html>
-"""
-
-# Menyematkan Canvas Animasi ke dalam Streamlit
-components.html(html_code, height=470)
-
-st.write("---")
-col1, col2 = st.columns(2)
-with col1:
-    st.info("💡 **Konsep Biologi & Informatika:** Animasi di atas menggunakan komputasi matriks jarak *O(n²)*. Setiap kali sel saling mendekat, algoritma akan menciptakan sinapsis (garis ikatan) buatan secara instan.")
-with col2:
-    st.success("👨‍💻 **Teknologi:** Merender ribuan iterasi kinetik per detik dengan *HTML5 Canvas API* yang sangat ringan tanpa membebani server.")
+    st.warning("Menunggu koneksi ke satelit USGS...")
